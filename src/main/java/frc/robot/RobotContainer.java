@@ -95,8 +95,9 @@ public class RobotContainer {
 
   public RobotContainer() {
         autoFactory = drivetrain.createAutoFactory();
-        autoRoutines = new AutoRoutines(autoFactory);
+        autoRoutines = new AutoRoutines(autoFactory, intake);
 
+        autoChooser.addRoutine("SimplePath with Intake", autoRoutines::simplePathWithIntakeAuto);
         autoChooser.addRoutine("SimplePath", autoRoutines::simplePathAuto);
         SmartDashboard.putData("Auto Chooser", autoChooser);
 
