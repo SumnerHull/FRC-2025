@@ -30,7 +30,7 @@ public class AutoRoutines {
 
     public AutoRoutine simplePathWithIntakeAuto() {
         final AutoRoutine routine = m_factory.newRoutine("SimplePath with Intake Auto");
-        final AutoTrajectory simplePath = routine.trajectory("SimplePath");
+        final AutoTrajectory simplePath = routine.trajectory("Middle-C1C2B2B1-FarPickup");
 
         routine.active().onTrue(
             new SequentialCommandGroup(

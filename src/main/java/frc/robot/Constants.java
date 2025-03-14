@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+import edu.wpi.first.wpilibj.RobotBase;
+
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
  * constants. This class should not be used for any other purpose. All constants should be declared
@@ -19,15 +21,15 @@ public final class Constants {
 
   public static final class CageSetpoints {
     public static final double kCageLevel1 = 0;
-    public static final double kCageLevel2 = 325;
+    public static final double kCageLevel2 = 300;
     }
   }
     
   public static final class CoralSubsystemConstants {
     public static final int kElevatorMotorCanId1 = 25;
     //public static final int kElevatorMotorCanId2 = 31;
-    public static final int kCoralArmMotorCanId = 26;
-    public static final int kCoralIntakeMotorCanId = 27;
+    public static final int kCoralArmMotorCanId = 7;
+    public static final int kCoralIntakeMotorCanId = 5;
 
 
     public static final class ElevatorSetpoints {
@@ -41,8 +43,8 @@ public final class Constants {
     public static final class ArmSetpoints {
 //      public static final double kFeederStation = 33;
       public static final double kArmLevel1 = 0;
-      public static final double kArmLevel2 = 1.9;
-      public static final double kArmLevel3 = 4;
+      public static final double kArmLevel2 = -1.9  ;
+      public static final double kArmLevel3 = -3.8;
     }
 
     public static final class IntakeSetpoints {
@@ -68,6 +70,20 @@ public final class Constants {
       public static final double kReverse = -0.5;
       public static final double kHold = 0.25;
     }
+  }
+
+  public static final Mode simMode = Mode.SIM;
+  public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+
+  public static enum Mode {
+    /** Running on a real robot. */
+    REAL,
+
+    /** Running a physics simulator. */
+    SIM,
+
+    /** Replaying from a log file. */
+    REPLAY
   }
 
 }

@@ -15,27 +15,43 @@ import choreo.auto.AutoFactory;
 
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.AddressableLED;
+import edu.wpi.first.wpilibj.AddressableLEDBuffer;
+import edu.wpi.first.wpilibj.LEDPattern;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.commands.SetCagePose;
 import frc.robot.commands.SetCoralArmPose;
 import frc.robot.commands.SetCoralIntakeSpeed;
 import frc.robot.commands.SetElevatorPose;
+import frc.robot.commands.DriveCommands;
 import frc.robot.commands.SetAlgaeIntakeSpeed;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.ElevatorSubsystem;
 import frc.robot.subsystems.AlgaeIntakeSubsystem;
 import frc.robot.subsystems.CageSubsystem;
 import frc.robot.subsystems.CoralArmSubsystem;
 import frc.robot.subsystems.CoralIntakeSubsystem;
+import frc.robot.subsystems.LedSubsystem;
+import frc.robot.subsystems.drive.CommandSwerveDrivetrain;
+import frc.robot.subsystems.drive.GyroIO;
+import frc.robot.subsystems.drive.ModuleIOTalonFX;
+
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import com.pathplanner.lib.auto.AutoBuilder;
+
+
 
 
 public class RobotContainer {
 
   double tx = LimelightHelpers.getTX("");
+
 
   /* swerve drive nonsense */
   private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -58,6 +74,7 @@ public class RobotContainer {
   private final CoralIntakeSubsystem coralintake = new CoralIntakeSubsystem();
   private final ElevatorSubsystem elevator = new ElevatorSubsystem();
   private final CageSubsystem cage = new CageSubsystem();
+  private final LedSubsystem led = new LedSubsystem();
 
   /* commands */
   private final SetCagePose cageHold = new SetCagePose(cage, Constants.CageSubsystemConstants.CageSetpoints.kCageLevel2);
@@ -83,7 +100,14 @@ public class RobotContainer {
   private final CommandXboxController drivecontroller = new CommandXboxController(0);
   private final CommandXboxController opController = new CommandXboxController(1);
 
-  public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+  public final CommandSwerveDrivetrain drivetrain =
+  new CommandSwerveDrivetrain(
+      new GyroIO() {},
+      new ModuleIOTalonFX(TunerConstants.FrontLeft),
+      new ModuleIOTalonFX(TunerConstants.FrontRight),
+      new ModuleIOTalonFX(TunerConstants.BackLeft),
+      new ModuleIOTalonFX(TunerConstants.BackRight));
+
 
   private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
@@ -91,30 +115,72 @@ public class RobotContainer {
   private final AutoRoutines autoRoutines;
   private final AutoChooser autoChooser = new AutoChooser(); 
 
+
   
 
   public RobotContainer() {
-        autoFactory = drivetrain.createAutoFactory();
-        autoRoutines = new AutoRoutines(autoFactory, intake);
+        final LoggedDashboardChooser<Command> autoChooser;
+        
 
-        autoChooser.addRoutine("SimplePath with Intake", autoRoutines::simplePathWithIntakeAuto);
-        autoChooser.addRoutine("SimplePath", autoRoutines::simplePathAuto);
-        SmartDashboard.putData("Auto Chooser", autoChooser);
+        // Set up auto routines
+        autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+
+        // Set up SysId routines
+        //autoChooser.addOption(
+        //    "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
+       // autoChooser.addOption(
+         //   "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+       // autoChooser.addOption(
+         //   "Drive SysId (Quasistatic Forward)",
+         //   drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+       // autoChooser.addOption(
+         //   "Drive SysId (Quasistatic Reverse)",
+          //  drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+       // autoChooser.addOption(
+          //  "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        //autoChooser.addOption(
+         //   "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+
 
         configureBindings();
+
   }
 
   private void configureBindings() {
     // Note that X is defined as forward according to WPILib convention,
     // and Y is defined as to the left according to WPILib convention.
-    drivetrain.setDefaultCommand(
-      // Drivetrain will execute this command periodically
-      drivetrain.applyRequest(() ->
-        drive.withVelocityX(-drivecontroller.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-        .withVelocityY(-drivecontroller.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-        .withRotationalRate(-drivecontroller.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
-      )
-    );
+    CommandSwerveDrivetrain.setDefaultCommand(
+        new DriveCommands.joystickDrive(
+            drive,
+            () -> -drivecontroller.getLeftY(
+            tLeftY(),
+            () -> -drivecontroller.getLeftX(),
+            () -> -drivecontroller.getRightX())));
+
+    // Lock to 0° when A button is held
+    drivecontroller
+        .a()
+        .whileTrue(
+            DriveCommands.joystickDriveAtAngle(
+                drive,
+                () -> -drivecontroller.getLeftY(),
+                () -> -drivecontroller.getLeftX(),
+                () -> new Rotation2d()));
+
+    // Switch to X pattern when X button is pressed
+    drivecontroller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
+
+    // Reset gyro to 0° when B button is pressed
+    drivecontroller
+        .b()
+        .onTrue(
+            Commands.runOnce(
+                    () ->
+                        drive.setPose(
+                            new Pose2d(drive.getPose().getTranslation(), new Rotation2d())),
+                    drive)
+                .ignoringDisable(true));
+  }
 
     drivecontroller.a().whileTrue(drivetrain.applyRequest(() -> brake));
     drivecontroller.b().whileTrue(drivetrain.applyRequest(() ->
@@ -148,9 +214,25 @@ public class RobotContainer {
     opController.povRight().toggleOnTrue(armLv2);
     opController.povUp().toggleOnTrue(armLv3);
 
-  }
+    // Trigger solid red pattern when pressing the "A" button
+   // opController.a().onTrue(led.runPattern(LEDPattern.solid(Color.kRed)));
+    
+    // Trigger solid green pattern when pressing the "B" button
+   // opController.b().onTrue(led.runPattern(LEDPattern.solid(Color.kGreen)));
+    
+    // Trigger solid blue pattern when pressing the "X" button
+    //opController.x().onTrue(led.runPattern(LEDPattern.solid(Color.kBlue)));
+    
+    // Turn off LED strip when "Y" button is pressed
+   // opController.y().onTrue(led.runPattern(LEDPattern.solid(Color.kBlack)));
+
+    // You can also add more complex patterns based on your needs, for example:
+    //opController.leftBumper().onTrue(led.runPattern(LEDPattern.rainbow()));
+
+  
 
   public Command getAutonomousCommand() {
     return autoChooser.selectedCommand();
   }
+}
 }
